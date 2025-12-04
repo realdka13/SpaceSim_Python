@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 from matplotlib.widgets import Button, TextBox, CheckButtons
+import matplotlib.gridspec as gridspec
 
 
 #Time settings
@@ -28,7 +29,7 @@ m2 = 500.0                    # Mass of body 2
 
 #Changes to make every frame
 def UpdateFrame(frame):
-    global r1, r2, v1, v2, trail1, trail2
+    global r1, r2, v1, v2, trail1, trail2, v1_history, t_history
     if running:
         #Calculate Normalized Vectors Between Bodies
         r12 = r2 - r1   #Vector from body 1 to body 2               #***** Verify
@@ -67,31 +68,60 @@ def UpdateFrame(frame):
         trail1 = trail1[-max_trail_length:]
         trail2 = trail2[-max_trail_length:]
 
+        #Update Velocities
+        v1_history.append(v1.copy())
+        t_history.append(frame * deltaTime)
+        v1_history = v1_history[-max_points:]
+        t_history = t_history[-max_points:]
+        v1_mag = [np.linalg.norm(v) for v in v1_history]
+
+
         #Update Plot
     body1Plot.set_data([r1[0]], [r1[1]])
     body2Plot.set_data([r2[0]], [r2[1]])
+    body1VelPlot.set_data(t_history, v1_mag)
     if show_trails[0]:
         trail1Plot.set_data(*zip(*trail1))
         trail2Plot.set_data(*zip(*trail2))
     else:
         trail1Plot.set_data([], [])
         trail2Plot.set_data([], [])
-    return body1Plot, body2Plot, trail1Plot, trail2Plot
+
+    axis2.relim()         # recompute limits
+    axis2.autoscale_view()  # rescale view
+
+    return body1Plot, body2Plot, trail1Plot, trail2Plot, body1VelPlot
 
 
 ##### Additional Features #####
 #Trails
-max_trail_length = 500
+max_trail_length = 1000
 trail1 = [r1.copy()]
 trail2 = [r2.copy()]
+
+#Velocity
+max_points = 100
+v1_history = [v1.copy()]
+t_history = [0] 
 
 ##### Below is code for Plotting #####
 
 #Plot Settings
-fig, axis = plt.subplots(figsize=(8, 8))
+fig = plt.figure(figsize=(12, 8))
 fig.subplots_adjust(bottom=0.3)
+gs = gridspec.GridSpec(1, 2, width_ratios=[2, 1.5], wspace=0.3)
+
+
+axis = fig.add_subplot(gs[0])
 axis.set_xlim(-100, 100)
 axis.set_ylim(-100, 100)
+axis.set_title("Visualization")
+
+axis2 = fig.add_subplot(gs[1])
+axis2.grid(True)
+axis2.set_xlabel("Time")
+axis2.set_ylabel("Velocity")
+axis2.set_title("Velocity vs Time")
 
 #Plot Widgets  #plt.axes(x, y, width, height)    (in figure coords)
 plt.text(0.192, 0.165, 'Red', transform=fig.transFigure, ha='right', va='center', fontsize=11)
@@ -252,6 +282,9 @@ body2Plot, = axis.plot([], [], marker='o', linestyle='', markersize=6, color='bl
 #Trail Plots
 trail1Plot, = axis.plot([], [], color='red', linewidth=1)
 trail2Plot, = axis.plot([], [], color='blue', linewidth=1)
+
+#Velocities
+body1VelPlot, = axis2.plot([], [], color='red', linewidth=1)
 
 animation = FuncAnimation(
     fig=fig,
