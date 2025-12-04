@@ -7,10 +7,9 @@ import matplotlib.gridspec as gridspec
 from Utils.Trails import TrailManager
 
 #TODO
-#Refactor/Clean/Verify Math
-#Vectors
+#Verify Math
 #Masses, Energies, Momentum displayed
-#Realistic Numbers
+#Realistic Numbers, Make it not use deltaTime because it causes issues when something changes
 
 
 
@@ -28,7 +27,7 @@ G = 50.0   #Gravitational Constant
     #Body1
 r1 = np.array([-20.0, 20.0])  # Initial position of body 1
 v1 = np.array([7.0, 5.0])  # Initial velocity of body 1
-m1 = 500.0                    # Mass of body 1
+m1 = 100.0                    # Mass of body 1
 
     #Body 2
 r2 = np.array([20.0, -20.0])   # Initial position of body 2
@@ -117,18 +116,12 @@ def UpdateFrame(frame):
         a2 = Fg2_vec / m2
 
         #Update Velocity
-        v1[0] += a1[0] * deltaTime
-        v1[1] += a1[1] * deltaTime
-
-        v2[0] += a2[0] * deltaTime
-        v2[1] += a2[1] * deltaTime
+        v1 += a1 * deltaTime
+        v2 += a2 * deltaTime
 
         #Update Position
-        r1[0] += v1[0] * deltaTime
-        r1[1] += v1[1] * deltaTime
-
-        r2[0] += v2[0] * deltaTime
-        r2[1] += v2[1] * deltaTime
+        r1 += v1 * deltaTime
+        r2 += v2 * deltaTime
 
         #Update Trails
         trailManager.update('body1', r1)
