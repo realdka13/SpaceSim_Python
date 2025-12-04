@@ -4,7 +4,12 @@ import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 from matplotlib.widgets import Button, TextBox, CheckButtons
 import matplotlib.gridspec as gridspec
+from Utils.Trails import TrailManager
 
+#TODO
+#Refactor/Clean/Verify Math
+#Fix Velocities
+#Vectors
 
 #Time settings
 deltaTime = 0.01   #Time change per step
@@ -29,7 +34,7 @@ m2 = 500.0                    # Mass of body 2
 
 #Changes to make every frame
 def UpdateFrame(frame):
-    global r1, r2, v1, v2, trail1, trail2, v1_history, t_history
+    global r1, r2, v1, v2, trail1Plot, trail2Plot, trailManager, v1_history, t_history
     if running:
         #Calculate Normalized Vectors Between Bodies
         r12 = r2 - r1   #Vector from body 1 to body 2               #***** Verify
@@ -63,10 +68,8 @@ def UpdateFrame(frame):
         r2[1] += v2[1] * deltaTime
 
         #Update Trails
-        trail1.append(r1.copy())
-        trail2.append(r2.copy())
-        trail1 = trail1[-max_trail_length:]
-        trail2 = trail2[-max_trail_length:]
+        trailManager.update('body1', r1)
+        trailManager.update('body2', r2)
 
         #Update Velocities
         v1_history.append(v1.copy())
@@ -76,36 +79,42 @@ def UpdateFrame(frame):
         v1_mag = [np.linalg.norm(v) for v in v1_history]
 
 
-        #Update Plot
+    #Update Plots
     body1Plot.set_data([r1[0]], [r1[1]])
     body2Plot.set_data([r2[0]], [r2[1]])
-    body1VelPlot.set_data(t_history, v1_mag)
+
+    #body1VelPlot.set_data(t_history, v1_mag)
+    #axis2.relim()         # recompute limits
+    #axis2.autoscale_view()  # rescale view
+
+
     if show_trails[0]:
-        trail1Plot.set_data(*zip(*trail1))
-        trail2Plot.set_data(*zip(*trail2))
+        trail1_data = trailManager.get_trail('body1')
+        trail2_data = trailManager.get_trail('body2')
+        if trail1_data:
+            trail1Plot.set_data(*zip(*trail1_data))
+        if trail2_data:
+            trail2Plot.set_data(*zip(*trail2_data))
     else:
         trail1Plot.set_data([], [])
         trail2Plot.set_data([], [])
 
-    axis2.relim()         # recompute limits
-    axis2.autoscale_view()  # rescale view
-
     return body1Plot, body2Plot, trail1Plot, trail2Plot, body1VelPlot
 
 
-##### Additional Features #####
+##### Additional Features Start #####
 #Trails
-max_trail_length = 1000
-trail1 = [r1.copy()]
-trail2 = [r2.copy()]
+trailManager = TrailManager(max_length=1000)
+trailManager.add_body('body1', r1)
+trailManager.add_body('body2', r2)
 
 #Velocity
 max_points = 100
 v1_history = [v1.copy()]
 t_history = [0] 
+##### Additional Features End #####
 
-##### Below is code for Plotting #####
-
+#####  Figure Start #####
 #Plot Settings
 fig = plt.figure(figsize=(12, 8))
 fig.subplots_adjust(bottom=0.3)
@@ -122,8 +131,11 @@ axis2.grid(True)
 axis2.set_xlabel("Time")
 axis2.set_ylabel("Velocity")
 axis2.set_title("Velocity vs Time")
+#####  Figure End #####
 
-#Plot Widgets  #plt.axes(x, y, width, height)    (in figure coords)
+
+#####  Widgets Start #####
+#plt.axes(x, y, width, height)    (in figure coords)
 plt.text(0.192, 0.165, 'Red', transform=fig.transFigure, ha='right', va='center', fontsize=11)
 plt.text(0.335, 0.165, 'Blue', transform=fig.transFigure, ha='right', va='center', fontsize=11)
 
@@ -133,7 +145,7 @@ body2PosText = TextBox(plt.axes([0.25, 0.105, 0.13, 0.05]), '', initial=f"{r2[0]
 body2VelText = TextBox(plt.axes([0.25, 0.05, 0.13, 0.05]), '', initial=f"{v2[0]:.1f}, {v2[1]:.1f}")
 
 trailCheck = CheckButtons(plt.axes([0.69, 0.16, 0.075, 0.05]), ['Trails?'], [True])
-trailLengthBox = TextBox(plt.axes([0.8, 0.16, 0.07, 0.05]), 'Len', initial=str(max_trail_length))
+trailLengthBox = TextBox(plt.axes([0.8, 0.16, 0.07, 0.05]), 'Len', initial=str(trailManager.get_max_length()))
 
 slowerButton = Button(plt.axes([0.69, 0.105, 0.05, 0.05]), '<<')
 timeText = TextBox(plt.axes([0.74, 0.105, 0.075, 0.05]), '', initial=str(deltaTime))
@@ -143,9 +155,10 @@ startButton = Button(plt.axes([0.66, 0.05, 0.075, 0.05]), 'Start')
 pauseButton = Button(plt.axes([0.74, 0.05, 0.075, 0.05]), 'Pause')
 resetButton = Button(plt.axes([0.82, 0.05, 0.075, 0.05]), 'Reset')
 
+
 #Reset Button Logic
 def reset(event):
-    global r1, r2, v1, v2, trail1, trail2, body1Plot, body2Plot, trail1Plot, trail2Plot
+    global r1, r2, v1, v2, body1Plot, body2Plot, trail1Plot, trail2Plot, trailManager
 
     # reset positions
     r1[:] = initial_r1
@@ -156,8 +169,8 @@ def reset(event):
     v2[:] = initial_v2
 
     #reset trails
-    trail1 = [r1.copy()]
-    trail2 = [r2.copy()]
+    trailManager.clear("body1")
+    trailManager.clear("body2")
     
     # update plot instantly
     body1Plot.set_data([r1[0]], [r1[1]])
@@ -273,8 +286,9 @@ def update_body2_vel(text):
         body2VelText.set_val(f"{v2[0]:.1f}, {v2[1]:.1f}")
     plt.draw()
 body2VelText.on_submit(update_body2_vel)
+#####  Widgets End #####
 
-
+#####  Plots Start #####
 #Plots for Each Body
 body1Plot, = axis.plot([], [], marker='o', linestyle='', markersize=6, color='red')
 body2Plot, = axis.plot([], [], marker='o', linestyle='', markersize=6, color='blue')
@@ -295,3 +309,4 @@ animation = FuncAnimation(
 )
 
 plt.show()
+#####  Plots End #####
