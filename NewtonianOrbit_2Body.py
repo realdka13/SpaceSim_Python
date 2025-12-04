@@ -8,12 +8,11 @@ from Utils.Trails import TrailManager
 
 #TODO
 #Refactor/Clean/Verify Math
-#Fix Velocities
 #Vectors
+#Realistic Numbers
 
 #Time settings
 deltaTime = 0.01   #Time change per step
-numSteps = 100     #Total number of time steps
 running = True    #For Start/Pause
 
 #Constants
@@ -34,7 +33,7 @@ m2 = 500.0                    # Mass of body 2
 
 #Changes to make every frame
 def UpdateFrame(frame):
-    global r1, r2, v1, v2, trail1Plot, trail2Plot, trailManager, v1_history, t_history
+    global r1, r2, v1, v2, trail1Plot, trail2Plot, trailManager, vel1History, timeHistory
     if running:
         #Calculate Normalized Vectors Between Bodies
         r12 = r2 - r1   #Vector from body 1 to body 2               #***** Verify
@@ -72,20 +71,25 @@ def UpdateFrame(frame):
         trailManager.update('body2', r2)
 
         #Update Velocities
-        v1_history.append(v1.copy())
-        t_history.append(frame * deltaTime)
-        v1_history = v1_history[-max_points:]
-        t_history = t_history[-max_points:]
-        v1_mag = [np.linalg.norm(v) for v in v1_history]
+        currentTime = frame * deltaTime
+        vel1History.append(np.linalg.norm(v1))
+        timeHistory.append(currentTime)
+        vel1History = vel1History[-maxVelHistory:]
+        timeHistory = timeHistory[-maxVelHistory:]
 
 
     #Update Plots
     body1Plot.set_data([r1[0]], [r1[1]])
     body2Plot.set_data([r2[0]], [r2[1]])
 
-    #body1VelPlot.set_data(t_history, v1_mag)
-    #axis2.relim()         # recompute limits
-    #axis2.autoscale_view()  # rescale view
+    body1VelPlot.set_data(timeHistory, vel1History)
+
+    #Sliding Window for Vel
+    velWindow = 10
+    max_velocity = max(vel1History) if vel1History else 0
+    axis2.set_xlim(currentTime - velWindow, currentTime + velWindow*0.1)
+    axis2.set_ylim(bottom=0, top=max_velocity*1.1)  # add 10% margin
+
 
 
     if show_trails[0]:
@@ -109,9 +113,10 @@ trailManager.add_body('body1', r1)
 trailManager.add_body('body2', r2)
 
 #Velocity
-max_points = 100
-v1_history = [v1.copy()]
-t_history = [0] 
+maxVelHistory = 500
+vel1History = [np.linalg.norm(v1)]
+print(vel1History)
+timeHistory = [0] 
 ##### Additional Features End #####
 
 #####  Figure Start #####
@@ -303,8 +308,8 @@ body1VelPlot, = axis2.plot([], [], color='red', linewidth=1)
 animation = FuncAnimation(
     fig=fig,
     func=UpdateFrame,
-    frames=numSteps,
-    interval=0,
+    frames=None,
+    interval=10,
     blit = True
 )
 
