@@ -9,8 +9,14 @@ from Utils.Trails import TrailManager
 #TODO
 #Refactor/Clean/Verify Math
 #Vectors
+#Masses, Energies, Momentum displayed
 #Realistic Numbers
 
+
+
+
+
+##### Simulation Settings Start #####
 #Time settings
 deltaTime = 0.01   #Time change per step
 running = True    #For Start/Pause
@@ -27,16 +33,74 @@ m1 = 500.0                    # Mass of body 1
     #Body 2
 r2 = np.array([20.0, -20.0])   # Initial position of body 2
 v2 = np.array([-10.0, -4.0])# Initial velocity of body 2
-m2 = 500.0                    # Mass of body 2
+m2 = 1000.0                    # Mass of body 2
+##### Simulation Settings End #####
+
+
+
+
+
+#####  Figure Start #####
+#Plot Settings
+fig = plt.figure(figsize=(12, 8))
+fig.subplots_adjust(bottom=0.3)
+gs = gridspec.GridSpec(1, 2, width_ratios=[2, 1.5], wspace=0.3)
+
+
+axis = fig.add_subplot(gs[0])
+axis.set_xlim(-100, 100)
+axis.set_ylim(-100, 100)
+axis.set_title("Visualization")
+
+axis2 = fig.add_subplot(gs[1])
+axis2.grid(True)
+axis2.set_xlabel("Time")
+axis2.set_xticklabels([])
+axis2.set_ylabel("Velocity")
+axis2.set_title("Velocity vs Time")
+
+#Plots for Each Body
+body1Plot, = axis.plot([], [], marker='o', linestyle='', markersize=6, color='red')
+body2Plot, = axis.plot([], [], marker='o', linestyle='', markersize=6, color='blue')
+
+#Trail Plots
+trail1Plot, = axis.plot([], [], color='red', linewidth=1)
+trail2Plot, = axis.plot([], [], color='blue', linewidth=1)
+
+#Velocities
+body1VelPlot, = axis2.plot([], [], color='red', linewidth=1)
+body2VelPlot, = axis2.plot([], [], color='blue', linewidth=1)
+#####  Figure End #####
+
+
+
+
+
+##### Additional Features Start #####
+#Trails
+trailManager = TrailManager(max_length=1000)
+trailManager.add_body('body1', r1)
+trailManager.add_body('body2', r2)
+
+#Velocity
+maxVelHistory = 500
+vel1History = [np.linalg.norm(v1)]
+vel2History = [np.linalg.norm(v2)]
+timeHistory = [0] 
+##### Additional Features End #####
+
+
 
 
 
 #Changes to make every frame
 def UpdateFrame(frame):
-    global r1, r2, v1, v2, trail1Plot, trail2Plot, trailManager, vel1History, timeHistory
+    global r1, r2, v1, v2, trail1Plot, trail2Plot, trailManager, vel1History, vel2History, timeHistory
+    currentTime = frame * deltaTime
+
     if running:
         #Calculate Normalized Vectors Between Bodies
-        r12 = r2 - r1   #Vector from body 1 to body 2               #***** Verify
+        r12 = r2 - r1   #Vector from body 1 to body 2
 
         r_mag = np.linalg.norm(r12)
 
@@ -71,72 +135,44 @@ def UpdateFrame(frame):
         trailManager.update('body2', r2)
 
         #Update Velocities
-        currentTime = frame * deltaTime
         vel1History.append(np.linalg.norm(v1))
+        vel2History.append(np.linalg.norm(v2))
         timeHistory.append(currentTime)
         vel1History = vel1History[-maxVelHistory:]
+        vel2History = vel2History[-maxVelHistory:]
         timeHistory = timeHistory[-maxVelHistory:]
 
 
-    #Update Plots
-    body1Plot.set_data([r1[0]], [r1[1]])
-    body2Plot.set_data([r2[0]], [r2[1]])
+        #Update Plots
+        body1Plot.set_data([r1[0]], [r1[1]])
+        body2Plot.set_data([r2[0]], [r2[1]])
 
-    body1VelPlot.set_data(timeHistory, vel1History)
+        body1VelPlot.set_data(timeHistory, vel1History)
+        body2VelPlot.set_data(timeHistory, vel2History)
 
-    #Sliding Window for Vel
-    velWindow = 10
-    max_velocity = max(vel1History) if vel1History else 0
-    axis2.set_xlim(currentTime - velWindow, currentTime + velWindow*0.1)
-    axis2.set_ylim(bottom=0, top=max_velocity*1.1)  # add 10% margin
-
-
-
-    if show_trails[0]:
-        trail1_data = trailManager.get_trail('body1')
-        trail2_data = trailManager.get_trail('body2')
-        if trail1_data:
-            trail1Plot.set_data(*zip(*trail1_data))
-        if trail2_data:
-            trail2Plot.set_data(*zip(*trail2_data))
-    else:
-        trail1Plot.set_data([], [])
-        trail2Plot.set_data([], [])
-
-    return body1Plot, body2Plot, trail1Plot, trail2Plot, body1VelPlot
+        #Sliding Window for Vel
+        velWindow = 10
+        max_velocity = max(max(vel1History, default=0), max(vel2History, default=0))
+        axis2.set_xlim(currentTime - velWindow, currentTime + velWindow*0.1)
+        axis2.set_ylim(bottom=0, top=max_velocity*1.1)  # add 10% margin
 
 
-##### Additional Features Start #####
-#Trails
-trailManager = TrailManager(max_length=1000)
-trailManager.add_body('body1', r1)
-trailManager.add_body('body2', r2)
 
-#Velocity
-maxVelHistory = 500
-vel1History = [np.linalg.norm(v1)]
-print(vel1History)
-timeHistory = [0] 
-##### Additional Features End #####
+        if show_trails[0]:
+            trail1_data = trailManager.get_trail('body1')
+            trail2_data = trailManager.get_trail('body2')
+            if trail1_data:
+                trail1Plot.set_data(*zip(*trail1_data))
+            if trail2_data:
+                trail2Plot.set_data(*zip(*trail2_data))
+        else:
+            trail1Plot.set_data([], [])
+            trail2Plot.set_data([], [])
 
-#####  Figure Start #####
-#Plot Settings
-fig = plt.figure(figsize=(12, 8))
-fig.subplots_adjust(bottom=0.3)
-gs = gridspec.GridSpec(1, 2, width_ratios=[2, 1.5], wspace=0.3)
+    return body1Plot, body2Plot, trail1Plot, trail2Plot, body1VelPlot, body2VelPlot
 
 
-axis = fig.add_subplot(gs[0])
-axis.set_xlim(-100, 100)
-axis.set_ylim(-100, 100)
-axis.set_title("Visualization")
 
-axis2 = fig.add_subplot(gs[1])
-axis2.grid(True)
-axis2.set_xlabel("Time")
-axis2.set_ylabel("Velocity")
-axis2.set_title("Velocity vs Time")
-#####  Figure End #####
 
 
 #####  Widgets Start #####
@@ -163,7 +199,7 @@ resetButton = Button(plt.axes([0.82, 0.05, 0.075, 0.05]), 'Reset')
 
 #Reset Button Logic
 def reset(event):
-    global r1, r2, v1, v2, body1Plot, body2Plot, trail1Plot, trail2Plot, trailManager
+    global r1, r2, v1, v2, body1Plot, body2Plot, trail1Plot, trail2Plot, trailManager, vel1History, timeHistory
 
     # reset positions
     r1[:] = initial_r1
@@ -183,6 +219,14 @@ def reset(event):
     trail1Plot.set_data([], [])
     trail2Plot.set_data([], [])
     plt.draw()
+
+    #reset histories
+    vel1History.clear()
+    vel1History.append(np.linalg.norm(v1))
+    vel2History.clear()
+    vel2History.append(np.linalg.norm(v2))
+    timeHistory.clear()
+    timeHistory = [0]
 
 initial_r1 = r1.copy()
 initial_r2 = r2.copy()
@@ -293,18 +337,11 @@ def update_body2_vel(text):
 body2VelText.on_submit(update_body2_vel)
 #####  Widgets End #####
 
+
+
+
+
 #####  Plots Start #####
-#Plots for Each Body
-body1Plot, = axis.plot([], [], marker='o', linestyle='', markersize=6, color='red')
-body2Plot, = axis.plot([], [], marker='o', linestyle='', markersize=6, color='blue')
-
-#Trail Plots
-trail1Plot, = axis.plot([], [], color='red', linewidth=1)
-trail2Plot, = axis.plot([], [], color='blue', linewidth=1)
-
-#Velocities
-body1VelPlot, = axis2.plot([], [], color='red', linewidth=1)
-
 animation = FuncAnimation(
     fig=fig,
     func=UpdateFrame,
