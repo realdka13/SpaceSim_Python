@@ -7,9 +7,9 @@ import matplotlib.gridspec as gridspec
 from Utils.Trails import TrailManager
 
 #TODO
-#Verify Math
+#Verify Math - needs to be independent of frame rate
 #Masses, Energies, Momentum displayed
-#Realistic Numbers, Make it not use deltaTime because it causes issues when something changes
+#Realistic Numbers
 
 
 
@@ -122,6 +122,13 @@ def UpdateFrame(frame):
         #Update Position
         r1 += v1 * deltaTime
         r2 += v2 * deltaTime
+
+        #Calulate Specfic Momentum and Specific Energy
+        v12 = v2 - v1
+        mu = G * (m1 + m2)
+        h = np.cross(r12, v12)                                         #Specific angular momentum
+        E = (0.5 * np.linalg.norm(v12)**2) - (mu/np.linalg.norm(r12))  #Specific orbital energy
+        print(f"Time: {currentTime:.2f} | E: {E:.2f}, h: {h:.2f}")
 
         #Update Trails
         trailManager.update('body1', r1)
