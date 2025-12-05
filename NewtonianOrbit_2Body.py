@@ -5,20 +5,23 @@ from matplotlib.animation import FuncAnimation
 from matplotlib.widgets import Button, TextBox, CheckButtons
 import matplotlib.gridspec as gridspec
 from Utils.Trails import TrailManager
+import time
 
 #TODO
-#Verify Math - needs to be independent of frame rate
-#Masses, Energies, Momentum displayed
 #Realistic Numbers
-
-
-
 
 
 ##### Simulation Settings Start #####
 #Time settings
-deltaTime = 0.01   #Time change per step
-running = True    #For Start/Pause
+timeSpeedMultiplier = 1 #For slowing or increasing rate of time
+simTime = 0.0           #simulation time in seconds
+running = True          #For Start/Pause
+lastUpdateTime = None
+
+update_interval = 0.5   # seconds between text box updates
+last_text_update = 0.0
+last_E_display = None
+last_h_display = None
 
 #Constants
 G = 50.0   #Gravitational Constant
@@ -94,41 +97,68 @@ timeHistory = [0]
 
 #Changes to make every frame
 def UpdateFrame(frame):
-    global r1, r2, v1, v2, trail1Plot, trail2Plot, trailManager, vel1History, vel2History, timeHistory
-    currentTime = frame * deltaTime
+    global r1, r2, v1, v2 
+    global trail1Plot, trail2Plot, trailManager
+    global vel1History, vel2History, timeHistory
+    global simTime, lastUpdateTime, last_text_update, last_E_display, last_h_display
 
+    #Calculate Time Elapsed
+    now = time.time()
+    if lastUpdateTime is None:
+        lastUpdateTime = now
+    true_dt = now - lastUpdateTime
+    lastUpdateTime = now
+
+    #Control Sim Time
     if running:
-        #Calculate Normalized Vectors Between Bodies
-        r12 = r2 - r1   #Vector from body 1 to body 2
+        sim_dt = true_dt * timeSpeedMultiplier
+        simTime += sim_dt
 
-        r_mag = np.linalg.norm(r12)
+    else:
+        sim_dt = 0
 
-        r12_Norm = r12 / r_mag
-
+    #Run Sim
+    if sim_dt > 0:
         #Calculate Force vectors Fg
-        Fg_mag = (G * m1 * m2) / (r_mag ** 2)
-        Fg1_vec = Fg_mag * r12_Norm
-        Fg2_vec = Fg_mag * -r12_Norm
-
+        r12 = r2 - r1                                           #Vector from body 1 to body 2
+        Fg = ((G * m1 * m2) * (r12)) / (np.linalg.norm(r12) ** 3)    #This is relative to body 1
 
         #Calculate acceleration vectors
-        a1 = Fg1_vec / m1
-        a2 = Fg2_vec / m2
+        a1 = Fg / m1
+        a2 = -Fg / m2
 
-        #Update Velocity
-        v1 += a1 * deltaTime
-        v2 += a2 * deltaTime
+        ## Velocity Verlot Integration Start
+        vHalf1 = v1 + 0.5 * a1 * sim_dt                      #Calculate Half Time Step
+        vHalf2 = v2 + 0.5 * a2 * sim_dt                      #Calculate Half Time Step
 
-        #Update Position
-        r1 += v1 * deltaTime
-        r2 += v2 * deltaTime
+        r1 = r1 + vHalf1 * sim_dt                            #Calculate new position
+        r2 = r2 + vHalf2 * sim_dt                            #Calculate new position
+
+        r12 = r2 - r1
+        newA1 = ((G * m2) * (r12)) / (np.linalg.norm(r12) ** 3)      #Recalculate accerlation with new position
+        newA2 = -((G * m1) * (r12)) / (np.linalg.norm(r12) ** 3)     #Recalculate accerlation with new position
+
+        v1 = vHalf1 + 0.5 * newA1 * sim_dt                   #Calcualate new vel
+        v2 = vHalf2 + 0.5 * newA2 * sim_dt                   #Calcualate new vel
 
         #Calulate Specfic Momentum and Specific Energy
         v12 = v2 - v1
         mu = G * (m1 + m2)
         h = np.cross(r12, v12)                                         #Specific angular momentum
         E = (0.5 * np.linalg.norm(v12)**2) - (mu/np.linalg.norm(r12))  #Specific orbital energy
-        print(f"Time: {currentTime:.2f} | E: {E:.2f}, h: {h:.2f}")
+        print(f"Time: {simTime:.2f} | E: {E:.2f}, h: {h:.2f}")
+
+            #Update displays
+        #if simTime - last_text_update >= update_interval:
+        #    tolerance = 0.01
+        #    if last_E_display is not None and abs(E - last_E_display) > tolerance:
+        #        energyText.set_val(f"{E:.2f}")
+        #    last_E_display = E
+        #    if  last_h_display is not None and abs(h - last_h_display) > tolerance:
+        #        angMomText.set_val(f"{h:.2f}")
+        #    last_h_display = h
+        #    last_text_update = simTime
+
 
         #Update Trails
         trailManager.update('body1', r1)
@@ -137,7 +167,7 @@ def UpdateFrame(frame):
         #Update Velocities
         vel1History.append(np.linalg.norm(v1))
         vel2History.append(np.linalg.norm(v2))
-        timeHistory.append(currentTime)
+        timeHistory.append(simTime)
         vel1History = vel1History[-maxVelHistory:]
         vel2History = vel2History[-maxVelHistory:]
         timeHistory = timeHistory[-maxVelHistory:]
@@ -153,7 +183,7 @@ def UpdateFrame(frame):
         #Sliding Window for Vel
         velWindow = 10
         max_velocity = max(max(vel1History, default=0), max(vel2History, default=0))
-        axis2.set_xlim(currentTime - velWindow, currentTime + velWindow*0.1)
+        axis2.set_xlim(simTime - velWindow, simTime + velWindow*0.1)
         axis2.set_ylim(bottom=0, top=max_velocity*1.1)  # add 10% margin
 
 
@@ -177,19 +207,26 @@ def UpdateFrame(frame):
 
 #####  Widgets Start #####
 #plt.axes(x, y, width, height)    (in figure coords)
-plt.text(0.192, 0.165, 'Red', transform=fig.transFigure, ha='right', va='center', fontsize=11)
-plt.text(0.335, 0.165, 'Blue', transform=fig.transFigure, ha='right', va='center', fontsize=11)
+plt.text(0.19, 0.225, 'Red', transform=fig.transFigure, ha='right', va='center', fontsize=11)
+plt.text(0.33, 0.225, 'Blue', transform=fig.transFigure, ha='right', va='center', fontsize=11)
 
+body1MassText = TextBox(plt.axes([0.11, 0.16, 0.13, 0.05]), '  Mass: ', initial=f"{m1:.1f}")
 body1PosText = TextBox(plt.axes([0.11, 0.105, 0.13, 0.05]), '  Init Pos: ', initial=f"{r1[0]:.1f}, {r1[1]:.1f}")
 body1VelText = TextBox(plt.axes([0.11, 0.05, 0.13, 0.05]), '  Init Vel:  ', initial=f"{v1[0]:.1f}, {v1[1]:.1f}")
+body2MassText = TextBox(plt.axes([0.25, 0.16, 0.13, 0.05]), '', initial=f"{m2:.1f}")
 body2PosText = TextBox(plt.axes([0.25, 0.105, 0.13, 0.05]), '', initial=f"{r2[0]:.1f}, {r2[1]:.1f}")
 body2VelText = TextBox(plt.axes([0.25, 0.05, 0.13, 0.05]), '', initial=f"{v2[0]:.1f}, {v2[1]:.1f}")
+
+energyText = TextBox(plt.axes([0.5, 0.16, 0.13, 0.05]), 'Spec. Energy E', initial="0.0")
+energyText.set_active(False)
+angMomText = TextBox(plt.axes([0.5, 0.105, 0.13, 0.05]), 'Spec. Ang. Mom. h', initial="0.0")
+angMomText.set_active(False)
 
 trailCheck = CheckButtons(plt.axes([0.69, 0.16, 0.075, 0.05]), ['Trails?'], [True])
 trailLengthBox = TextBox(plt.axes([0.8, 0.16, 0.07, 0.05]), 'Len', initial=str(trailManager.get_max_length()))
 
 slowerButton = Button(plt.axes([0.69, 0.105, 0.05, 0.05]), '<<')
-timeText = TextBox(plt.axes([0.74, 0.105, 0.075, 0.05]), '', initial=str(deltaTime))
+timeText = TextBox(plt.axes([0.74, 0.105, 0.075, 0.05]), '', initial=str(timeSpeedMultiplier))
 fasterButton = Button(plt.axes([0.815, 0.105, 0.05, 0.05]), '>>')
 
 startButton = Button(plt.axes([0.66, 0.05, 0.075, 0.05]), 'Start')
@@ -248,30 +285,30 @@ startButton.on_clicked(start)
 
 #Slowdown
 def slower(event):
-    global deltaTime
-    deltaTime = max(deltaTime * 0.5, 0.0001)
-    timeText.set_val(f"{deltaTime:.4f}")
+    global timeSpeedMultiplier
+    timeSpeedMultiplier = max(timeSpeedMultiplier * 0.5, 0.0001)
+    timeText.set_val(f"{timeSpeedMultiplier:.4f}")
 slowerButton.on_clicked(slower)
 
 #Speedup
 def faster(event):
-    global deltaTime
-    deltaTime *= 2
-    timeText.set_val(f"{deltaTime:.4f}")
+    global timeSpeedMultiplier
+    timeSpeedMultiplier *= 2
+    timeText.set_val(f"{timeSpeedMultiplier:.4f}")
 fasterButton.on_clicked(faster)
 
 #Text Box
-def update_dt(text):
-    global deltaTime
+def update_time_multiplier(text):
+    global timeSpeedMultiplier
     try:
         val = float(text)
         if val > 0:
-            deltaTime = val
+            timeSpeedMultiplier = val
         else:
-            timeText.set_val(str(deltaTime))
+            timeText.set_val(str(timeSpeedMultiplier))
     except:
-        timeText.set_val(str(deltaTime))
-timeText.on_submit(update_dt)
+        timeText.set_val(str(timeSpeedMultiplier))
+timeText.on_submit(update_time_multiplier)
 
 #Trails
 def toggle_trails(label):
@@ -294,6 +331,17 @@ def update_trail_length(text):
 trailLengthBox.on_submit(update_trail_length)
 
 #Initial Conditions
+def update_body1_mass(text):
+    global m1
+    try:
+        val = float(text)
+        if val > 0:
+            m1 = val
+        body1MassText.set_val(f"{m1:.1f}")
+    except:
+        body1MassText.set_val(f"{m1:.1f}")
+body1MassText.on_submit(update_body1_mass)
+
 def update_body1_pos(text):
     try:
         x, y = map(float, text.split(','))
@@ -314,6 +362,17 @@ def update_body1_vel(text):
         body1VelText.set_val(f"{v1[0]:.1f}, {v1[1]:.1f}")
     plt.draw()
 body1VelText.on_submit(update_body1_vel)
+
+def update_body2_mass(text):
+    global m2
+    try:
+        val = float(text)
+        if val > 0:
+            m2 = val
+        body2MassText.set_val(f"{m2:.1f}")
+    except:
+        body2MassText.set_val(f"{m2:.1f}")
+body2MassText.on_submit(update_body2_mass)
 
 def update_body2_pos(text):
     try:
