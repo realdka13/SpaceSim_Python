@@ -7,9 +7,6 @@ import matplotlib.gridspec as gridspec
 from Utils.Trails import TrailManager
 import time
 
-#TODO
-#Realistic Numbers
-
 
 ##### Simulation Settings Start #####
 #Time settings
