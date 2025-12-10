@@ -14,14 +14,14 @@ orbitalSpace.setAspectLocked(True)
 orbitalSpace.enableAutoRange(False)
 layout.addWidget(orbitalSpace)
 
-#Orbital Space Setup
-x = np.linspace(0, 2*np.pi, 200)
+#RightPanel
+rightWidget = QtWidgets.QWidget()
+rightPanel = QtWidgets.QVBoxLayout(rightWidget)
+layout.addWidget(rightWidget)
 
 #Add Controls
 controls = QtWidgets.QWidget()
 controlsLayout = QtWidgets.QVBoxLayout(controls)            #Vbox to contain all controls
-controlsLayout.setSpacing(5)                                #Vertical spacing
-controlsLayout.setContentsMargins(0, 0, 0, 0)
 textBoxes = []
 for i in range(5):
     label = QtWidgets.QLabel(f"Label {i+1}")                #Labels
@@ -30,9 +30,22 @@ for i in range(5):
     controlsLayout.addWidget(label)
     controlsLayout.addWidget(tbox)
     textBoxes.append(tbox)
-layout.addWidget(controls)
+rightPanel.addWidget(controls)
 
 #Controls Setup
+#****************
+
+#Add Statistics
+statistics = QtWidgets.QWidget()
+statisticsLayout = QtWidgets.QVBoxLayout(statistics)
+statNumbers = []
+for i in range(5):
+    label = QtWidgets.QLabel(f"Label {i+1}")                #Labels
+    statisticsLayout.addWidget(label)
+    statNumbers.append(label)
+rightPanel.addWidget(statistics)
+
+#Statistics Setup
 #****************
 
 #Add Bodies
